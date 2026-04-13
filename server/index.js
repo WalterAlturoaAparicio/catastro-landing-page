@@ -12,6 +12,7 @@ const { MercadoPagoConfig, Preference, Payment } = require("mercadopago")
 const PORT = process.env.PORT || 3000
 const MP_TOKEN = process.env.MP_ACCESS_TOKEN || "TEST-REPLACE-WITH-YOUR-TOKEN"
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`
+const API_KEY = process.env.INTERNAL_API_KEY;
 
 /* ─── Mercado Pago client ────────────────────────────────── */
 const mpClient = new MercadoPagoConfig({ accessToken: MP_TOKEN })
@@ -25,6 +26,17 @@ const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_KEY
 );
+
+/* ─── Middleware ────────────────────────────────────── */
+function checkApiKey(req, res, next) {
+  const key = req.headers['x-api-key'];
+
+  if (!key || key !== API_KEY) {
+    return res.status(403).json({ error: 'No autorizado' });
+  }
+
+  next();
+}
 
 /* ─── Helpers ─────────────────────────────────────────────── */
 const PLANES = {
@@ -81,7 +93,7 @@ app.post('/api/clientes', async (req, res) => {
  * Lista todos los clientes (solo para uso administrativo interno).
  * Proteger con autenticación antes de exponer en producción.
  */
-app.get("/api/clientes", async (_req, res) => {
+app.get("/api/clientes", checkApiKey, async (_req, res) => {
   const { data, error } = await supabase
     .from("clientes")
     .select("*")
@@ -188,7 +200,7 @@ app.post('/api/pagos/webhook', async (req, res) => {
  * GET /api/pagos
  * Lista todos los pagos (solo uso administrativo).
  */
-app.get("/api/pagos", async (_req, res) => {
+app.get("/api/pagos", checkApiKey, async (_req, res) => {
   const { data, error } = await supabase
     .from("pagos")
     .select("*")
